@@ -1,0 +1,1764 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Distribution Engine</title>
+    <script src="https://api.bitrix24.com/api/v1/"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2236;
+            --bg-card-hover: #1e2840;
+            --bg-input: #0f1629;
+            --border: #2a3654;
+            --border-focus: #3b82f6;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --tag-bg: rgba(59, 130, 246, 0.15);
+            --tag-text: #60a5fa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Onest', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ===== HEADER ===== */
+        .app-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-title .icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .app-title h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        .app-title .version {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== TABS ===== */
+        .tab-bar {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            gap: 4px;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab:hover { color: var(--text-secondary); }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab .badge {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 11px;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .tab.active .badge {
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .content { padding: 24px; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ===== TOOLBAR ===== */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover { background: var(--bg-card-hover); border-color: var(--text-muted); }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--accent-hover); }
+
+        .btn-danger {
+            background: var(--danger-bg);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover { background: var(--danger); color: white; }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+            font-size: 15px;
+            padding: 12px 28px;
+        }
+
+        .btn-success:hover { background: #059669; }
+
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ===== TABLE ===== */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: var(--bg-secondary);
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 10px 14px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .tag {
+            display: inline-block;
+            background: var(--tag-bg);
+            color: var(--tag-text);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin: 1px 2px;
+        }
+
+        .tag-green {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .tag-yellow {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .tag-red {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .status-active {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .status-inactive {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            width: 560px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        .modal h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-group .hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .form-group { flex: 1; }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ===== DISTRIBUTION PANEL ===== */
+        .dist-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .dist-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .dist-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: var(--bg-input);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .stat-item .label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .stat-item .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-item .value.text-success { color: var(--success); }
+        .stat-item .value.text-warning { color: var(--warning); }
+        .stat-item .value.text-danger { color: var(--danger); }
+
+        .start-section {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .start-section h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .start-section p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .start-options {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        /* ===== PROGRESS ===== */
+        .progress-container {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 20px;
+        }
+
+        .progress-container.active { display: block; }
+
+        .progress-bar-bg {
+            background: var(--bg-input);
+            border-radius: 8px;
+            height: 12px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(90deg, var(--accent), #8b5cf6);
+            height: 100%;
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-log {
+            background: var(--bg-input);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 12px;
+        }
+
+        .progress-log .log-line {
+            padding: 2px 0;
+        }
+
+        .progress-log .log-line.success { color: var(--success); }
+        .progress-log .log-line.error { color: var(--danger); }
+        .progress-log .log-line.info { color: var(--accent); }
+
+        /* ===== LOG TABLE ===== */
+        .log-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .log-filters input {
+            padding: 8px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            width: 250px;
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+        .empty-state h3 { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+        .empty-state p { font-size: 13px; margin-bottom: 20px; }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .dist-panel { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; }
+            .content { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+    <div class="app-title">
+        <div class="icon">⚡</div>
+        <div>
+            <h1>Lead Distribution Engine</h1>
+        </div>
+        <span class="version">v1.0</span>
+    </div>
+    <div class="header-status">
+        <div class="status-dot" id="connectionDot"></div>
+        <span class="status-text" id="connectionStatus">Bitrix24 bağlantısı kontrol ediliyor...</span>
+    </div>
+</header>
+
+<!-- TABS -->
+<nav class="tab-bar">
+    <div class="tab active" data-tab="distribution">⚡ Dağıtım<span class="badge" id="poolBadge">-</span></div>
+    <div class="tab" data-tab="rules">📋 Kurallar<span class="badge" id="rulesBadge">0</span></div>
+    <div class="tab" data-tab="personnel">👥 Personel<span class="badge" id="personnelBadge">0</span></div>
+    <div class="tab" data-tab="logs">📊 Loglar<span class="badge" id="logsBadge">0</span></div>
+</nav>
+
+<!-- CONTENT -->
+<div class="content">
+
+    <!-- ========== TAB: DISTRIBUTION ========== -->
+    <div class="tab-content active" id="tab-distribution">
+        <div class="dist-panel">
+            <div class="dist-card">
+                <h3>📊 Havuz Durumu</h3>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Havuz: <strong style="color:var(--tag-text);">Promed Database</strong> (ID: 5668) — Status: NEW</div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="label">Havuzdaki Lead</div>
+                        <div class="value" id="statPoolLeads">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Aktif Personel</div>
+                        <div class="value" id="statActivePersonnel">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Toplam İhtiyaç</div>
+                        <div class="value text-warning" id="statTotalNeed">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Aktif Kural</div>
+                        <div class="value" id="statActiveRules">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="dist-card">
+                <h3>🕐 Son Dağıtım</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="label">Tarih</div>
+                        <div class="value" id="statLastDate" style="font-size:14px;">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Dağıtılan</div>
+                        <div class="value text-success" id="statLastDistributed">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Süre</div>
+                        <div class="value" id="statLastDuration" style="font-size:14px;">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Hata</div>
+                        <div class="value text-danger" id="statLastErrors">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="start-section">
+            <h2>🚀 Lead Dağıtımı</h2>
+            <p>Havuzdaki leadleri kurallara göre personellere dağıt. Herkesin üzerinde hedef kota kadar lead olacak.</p>
+            <div class="start-options">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+                    <input type="checkbox" id="dryRunCheck"> Dry Run (test — gerçek atama yapmaz)
+                </label>
+            </div>
+            <button class="btn btn-success" id="startDistBtn" onclick="startDistribution()">
+                ⚡ Dağıtımı Başlat
+            </button>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3 id="progressTitle">Dağıtım başlatılıyor...</h3>
+                <button class="btn btn-danger btn-sm" id="stopBtn" onclick="stopDistribution()">⏹ Durdur</button>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);">
+                <span id="progressPercent">0%</span>
+                <span id="progressDetail">Hazırlanıyor...</span>
+            </div>
+            <div class="progress-log" id="progressLog"></div>
+        </div>
+    </div>
+
+    <!-- ========== TAB: RULES ========== -->
+    <div class="tab-content" id="tab-rules">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <h2 style="font-size:16px;">Dağıtım Kuralları</h2>
+                <span style="font-size:12px;color:var(--text-muted);">Spesifik kurallar önce uygulanır (çok koşul > az koşul)</span>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn" onclick="exportRules()">📥 Dışa Aktar</button>
+                <button class="btn" onclick="document.getElementById('importRulesInput').click()">📤 İçe Aktar</button>
+                <input type="file" id="importRulesInput" accept=".json" style="display:none" onchange="importRules(event)">
+                <button class="btn btn-primary" onclick="openRuleModal()">+ Yeni Kural</button>
+            </div>
+        </div>
+
+        <div class="table-container" id="rulesTableContainer">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Kural Adı</th>
+                        <th>Dil</th>
+                        <th>Telefon Prefix</th>
+                        <th>Servis</th>
+                        <th>Personeller</th>
+                        <th>Kota</th>
+                        <th>Aktif</th>
+                        <th style="width:100px;">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="rulesTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="empty-state" id="rulesEmpty">
+            <div class="icon">📋</div>
+            <h3>Henüz kural tanımlanmamış</h3>
+            <p>Leadlerin nasıl dağıtılacağını belirleyen kuralları ekleyin.</p>
+            <button class="btn btn-primary" onclick="openRuleModal()">+ İlk Kuralı Ekle</button>
+        </div>
+    </div>
+
+    <!-- ========== TAB: PERSONNEL ========== -->
+    <div class="tab-content" id="tab-personnel">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <h2 style="font-size:16px;">Personel Yönetimi</h2>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn" onclick="syncPersonnel()">🔄 Bitrix24'ten Senkronize Et</button>
+                <button class="btn btn-primary" onclick="openPersonnelModal()">+ Personel Ekle</button>
+            </div>
+        </div>
+
+        <div class="table-container" id="personnelTableContainer">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Bitrix ID</th>
+                        <th>Ad Soyad</th>
+                        <th>Mevcut NEW</th>
+                        <th>Kota</th>
+                        <th>İhtiyaç</th>
+                        <th>Aktif</th>
+                        <th style="width:100px;">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="personnelTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="empty-state" id="personnelEmpty">
+            <div class="icon">👥</div>
+            <h3>Henüz personel eklenmemiş</h3>
+            <p>Lead dağıtılacak personelleri ekleyin veya Bitrix24'ten senkronize edin.</p>
+            <button class="btn btn-primary" onclick="openPersonnelModal()">+ Personel Ekle</button>
+        </div>
+    </div>
+
+    <!-- ========== TAB: LOGS ========== -->
+    <div class="tab-content" id="tab-logs">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <h2 style="font-size:16px;">Dağıtım Logları</h2>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn btn-danger btn-sm" onclick="clearLogs()">🗑 Logları Temizle</button>
+            </div>
+        </div>
+
+        <div class="table-container" id="logsTableContainer">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Mod</th>
+                        <th>Toplam Lead</th>
+                        <th>Dağıtılan</th>
+                        <th>Eşleşmeyen</th>
+                        <th>Hata</th>
+                        <th>Süre</th>
+                        <th style="width:80px;">Detay</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="empty-state" id="logsEmpty">
+            <div class="icon">📊</div>
+            <h3>Henüz dağıtım yapılmamış</h3>
+            <p>İlk dağıtımı yaptığınızda loglar burada görünecek.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ========== RULE MODAL ========== -->
+<div class="modal-overlay" id="ruleModal">
+    <div class="modal">
+        <h3 id="ruleModalTitle">Yeni Kural Ekle</h3>
+        <input type="hidden" id="ruleEditIndex" value="-1">
+
+        <div class="form-group">
+            <label>Kural Adı</label>
+            <input type="text" id="ruleName" placeholder="Örn: DACH Ülkeleri Almanca">
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Dil (boş = farketmez)</label>
+                <input type="text" id="ruleLanguage" placeholder="Örn: German, Arabic">
+                <div class="hint">Virgülle birden fazla: German,English</div>
+            </div>
+            <div class="form-group">
+                <label>Telefon Prefix (boş = farketmez)</label>
+                <input type="text" id="rulePhonePrefix" placeholder="Örn: +49,+43,+41">
+                <div class="hint">Virgülle birden fazla: +49,+43,+41</div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Servis (boş = farketmez)</label>
+                <input type="text" id="ruleService" placeholder="Örn: Hair Transplant, Dental">
+                <div class="hint">Virgülle birden fazla: Hair Transplant,Dental</div>
+            </div>
+            <div class="form-group">
+                <label>Kota</label>
+                <input type="number" id="ruleQuota" value="100" min="1">
+                <div class="hint">Bu kuraldaki personellerin hedef lead sayısı</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Personeller (Bitrix ID'leri)</label>
+            <textarea id="rulePersonnel" rows="3" placeholder="Örn: 145,228,312 veya tüm aktif personel için: ALL"></textarea>
+            <div class="hint">Virgülle ayırarak Bitrix24 kullanıcı ID'lerini girin. Tüm aktif personel için "ALL" yazın.</div>
+        </div>
+
+        <div class="form-group">
+            <label>Aktif</label>
+            <select id="ruleActive">
+                <option value="true">Evet</option>
+                <option value="false">Hayır</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn" onclick="closeRuleModal()">İptal</button>
+            <button class="btn btn-primary" onclick="saveRule()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== PERSONNEL MODAL ========== -->
+<div class="modal-overlay" id="personnelModal">
+    <div class="modal">
+        <h3 id="personnelModalTitle">Personel Ekle</h3>
+        <input type="hidden" id="personnelEditIndex" value="-1">
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Bitrix24 Kullanıcı ID</label>
+                <input type="number" id="personnelBitrixId" placeholder="Örn: 145">
+            </div>
+            <div class="form-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="personnelName" placeholder="Örn: Ali Yılmaz">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Varsayılan Kota</label>
+                <input type="number" id="personnelQuota" value="100" min="1">
+            </div>
+            <div class="form-group">
+                <label>Aktif</label>
+                <select id="personnelActive">
+                    <option value="true">Evet</option>
+                    <option value="false">Hayır</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn" onclick="closePersonnelModal()">İptal</button>
+            <button class="btn btn-primary" onclick="savePersonnel()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== LOG DETAIL MODAL ========== -->
+<div class="modal-overlay" id="logDetailModal">
+    <div class="modal" style="width:700px;">
+        <h3>Dağıtım Detayı</h3>
+        <div id="logDetailContent"></div>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeLogDetailModal()">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// DATA STORE
+// ============================================================
+let APP_DATA = {
+    rules: [],
+    personnel: [],
+    logs: [],
+    lastDistribution: null,
+    settings: {
+        poolUserId: 5668,
+        poolUserName: 'Promed Database'
+    }
+};
+
+let isDistributing = false;
+let shouldStop = false;
+
+// ============================================================
+// BITRIX24 API WRAPPER
+// ============================================================
+const B24 = {
+    ready: false,
+    domain: '',
+
+    init() {
+        return new Promise((resolve) => {
+            if (typeof BX24 !== 'undefined') {
+                BX24.init(() => {
+                    this.ready = true;
+                    this.domain = BX24.getDomain();
+                    document.getElementById('connectionDot').style.background = 'var(--success)';
+                    document.getElementById('connectionStatus').textContent = `Bağlı: ${this.domain}`;
+                    resolve(true);
+                });
+            } else {
+                // Demo mode - Bitrix24 dışında çalışıyorsa
+                this.ready = false;
+                document.getElementById('connectionDot').style.background = 'var(--warning)';
+                document.getElementById('connectionStatus').textContent = 'Demo Mod (Bitrix24 dışında)';
+                resolve(false);
+            }
+        });
+    },
+
+    call(method, params = {}) {
+        return new Promise((resolve, reject) => {
+            if (!this.ready) {
+                // Demo modda fake data dön
+                resolve(this.demoResponse(method, params));
+                return;
+            }
+            BX24.callMethod(method, params, (result) => {
+                if (result.error()) {
+                    reject(result.error());
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+    },
+
+    callBatch(commands) {
+        return new Promise((resolve, reject) => {
+            if (!this.ready) {
+                resolve({});
+                return;
+            }
+            BX24.callBatch(commands, (results) => {
+                resolve(results);
+            });
+        });
+    },
+
+    // Demo modda test verileri
+    demoResponse(method, params) {
+        if (method === 'crm.lead.list') {
+            return {
+                data: () => [],
+                total: () => Math.floor(Math.random() * 5000) + 500,
+                more: () => false,
+                next: () => null
+            };
+        }
+        if (method === 'crm.lead.update') {
+            return { data: () => true };
+        }
+        return { data: () => ({}) };
+    },
+
+    // Kural ve personel verilerini Bitrix24 app.option'da sakla
+    async saveAppData() {
+        const dataStr = JSON.stringify(APP_DATA);
+        if (this.ready) {
+            return new Promise((resolve) => {
+                BX24.appOption.set('engine_data', dataStr, () => resolve());
+            });
+        } else {
+            localStorage.setItem('lead_engine_data', dataStr);
+        }
+    },
+
+    async loadAppData() {
+        if (this.ready) {
+            return new Promise((resolve) => {
+                BX24.appOption.get('engine_data', (value) => {
+                    if (value) {
+                        try { APP_DATA = JSON.parse(value); } catch(e) {}
+                    }
+                    resolve();
+                });
+            });
+        } else {
+            const data = localStorage.getItem('lead_engine_data');
+            if (data) {
+                try { APP_DATA = JSON.parse(data); } catch(e) {}
+            }
+        }
+    }
+};
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    });
+});
+
+// ============================================================
+// RULES MANAGEMENT
+// ============================================================
+function renderRules() {
+    const tbody = document.getElementById('rulesTableBody');
+    const empty = document.getElementById('rulesEmpty');
+    const container = document.getElementById('rulesTableContainer');
+    document.getElementById('rulesBadge').textContent = APP_DATA.rules.length;
+
+    if (APP_DATA.rules.length === 0) {
+        container.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    container.style.display = 'block';
+    empty.style.display = 'none';
+
+    // Sort by specificity (more conditions = higher priority)
+    const sorted = APP_DATA.rules.map((r, i) => ({...r, originalIndex: i}));
+    sorted.sort((a, b) => getSpecificity(b) - getSpecificity(a));
+
+    tbody.innerHTML = sorted.map((rule, displayIdx) => {
+        const specificity = getSpecificity(rule);
+        const personnelDisplay = rule.personnel === 'ALL' ? '<span class="tag tag-green">TÜM AKTİF</span>' :
+            rule.personnel.split(',').map(p => `<span class="tag">${p.trim()}</span>`).join('');
+        const langDisplay = rule.language ? rule.language.split(',').map(l => `<span class="tag">${l.trim()}</span>`).join('') : '<span style="color:var(--text-muted)">-</span>';
+        const phoneDisplay = rule.phonePrefix ? rule.phonePrefix.split(',').map(p => `<span class="tag tag-yellow">${p.trim()}</span>`).join('') : '<span style="color:var(--text-muted)">-</span>';
+        const serviceDisplay = rule.service ? rule.service.split(',').map(s => `<span class="tag tag-green">${s.trim()}</span>`).join('') : '<span style="color:var(--text-muted)">-</span>';
+
+        return `<tr>
+            <td><span style="color:var(--text-muted);font-size:11px;">${displayIdx + 1}</span></td>
+            <td><strong style="color:var(--text-primary)">${rule.name}</strong><br><span style="font-size:11px;color:var(--text-muted);">${specificity} koşul</span></td>
+            <td>${langDisplay}</td>
+            <td>${phoneDisplay}</td>
+            <td>${serviceDisplay}</td>
+            <td>${personnelDisplay}</td>
+            <td>${rule.quota || 100}</td>
+            <td>${rule.active !== false ? '<span class="status-active">✓ Aktif</span>' : '<span class="status-inactive">✗ Pasif</span>'}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editRule(${rule.originalIndex})">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteRule(${rule.originalIndex})">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function getSpecificity(rule) {
+    let count = 0;
+    if (rule.language) count++;
+    if (rule.phonePrefix) count++;
+    if (rule.service) count++;
+    return count;
+}
+
+function openRuleModal(index = -1) {
+    document.getElementById('ruleEditIndex').value = index;
+
+    if (index >= 0) {
+        const rule = APP_DATA.rules[index];
+        document.getElementById('ruleModalTitle').textContent = 'Kural Düzenle';
+        document.getElementById('ruleName').value = rule.name || '';
+        document.getElementById('ruleLanguage').value = rule.language || '';
+        document.getElementById('rulePhonePrefix').value = rule.phonePrefix || '';
+        document.getElementById('ruleService').value = rule.service || '';
+        document.getElementById('rulePersonnel').value = rule.personnel || '';
+        document.getElementById('ruleQuota').value = rule.quota || 100;
+        document.getElementById('ruleActive').value = rule.active !== false ? 'true' : 'false';
+    } else {
+        document.getElementById('ruleModalTitle').textContent = 'Yeni Kural Ekle';
+        document.getElementById('ruleName').value = '';
+        document.getElementById('ruleLanguage').value = '';
+        document.getElementById('rulePhonePrefix').value = '';
+        document.getElementById('ruleService').value = '';
+        document.getElementById('rulePersonnel').value = '';
+        document.getElementById('ruleQuota').value = 100;
+        document.getElementById('ruleActive').value = 'true';
+    }
+
+    document.getElementById('ruleModal').classList.add('active');
+}
+
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.remove('active');
+}
+
+function saveRule() {
+    const index = parseInt(document.getElementById('ruleEditIndex').value);
+    const rule = {
+        name: document.getElementById('ruleName').value.trim(),
+        language: document.getElementById('ruleLanguage').value.trim(),
+        phonePrefix: document.getElementById('rulePhonePrefix').value.trim(),
+        service: document.getElementById('ruleService').value.trim(),
+        personnel: document.getElementById('rulePersonnel').value.trim(),
+        quota: parseInt(document.getElementById('ruleQuota').value) || 100,
+        active: document.getElementById('ruleActive').value === 'true'
+    };
+
+    if (!rule.name) { alert('Kural adı gerekli'); return; }
+    if (!rule.personnel) { alert('Personel listesi gerekli'); return; }
+
+    if (index >= 0) {
+        APP_DATA.rules[index] = rule;
+    } else {
+        APP_DATA.rules.push(rule);
+    }
+
+    B24.saveAppData();
+    renderRules();
+    closeRuleModal();
+}
+
+function editRule(index) { openRuleModal(index); }
+
+function deleteRule(index) {
+    if (!confirm(`"${APP_DATA.rules[index].name}" kuralını silmek istediğinize emin misiniz?`)) return;
+    APP_DATA.rules.splice(index, 1);
+    B24.saveAppData();
+    renderRules();
+}
+
+function exportRules() {
+    const data = JSON.stringify(APP_DATA.rules, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lead-rules-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importRules(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const imported = JSON.parse(e.target.result);
+            if (!Array.isArray(imported)) { alert('Geçersiz dosya formatı'); return; }
+            if (confirm(`${imported.length} kural içe aktarılacak. Mevcut kurallar korunacak. Devam?`)) {
+                APP_DATA.rules = [...APP_DATA.rules, ...imported];
+                B24.saveAppData();
+                renderRules();
+            }
+        } catch(err) {
+            alert('Dosya okunamadı: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// ============================================================
+// PERSONNEL MANAGEMENT
+// ============================================================
+function renderPersonnel() {
+    const tbody = document.getElementById('personnelTableBody');
+    const empty = document.getElementById('personnelEmpty');
+    const container = document.getElementById('personnelTableContainer');
+    document.getElementById('personnelBadge').textContent = APP_DATA.personnel.length;
+
+    if (APP_DATA.personnel.length === 0) {
+        container.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    container.style.display = 'block';
+    empty.style.display = 'none';
+
+    tbody.innerHTML = APP_DATA.personnel.map((p, i) => {
+        const currentNew = p.currentNew || 0;
+        const quota = p.quota || 100;
+        const need = Math.max(0, quota - currentNew);
+        return `<tr>
+            <td><strong>${p.bitrixId}</strong></td>
+            <td style="color:var(--text-primary)">${p.name}</td>
+            <td>${currentNew}</td>
+            <td>${quota}</td>
+            <td><span class="${need > 0 ? 'tag tag-yellow' : 'tag tag-green'}">${need}</span></td>
+            <td>${p.active !== false ? '<span class="status-active">✓ Aktif</span>' : '<span class="status-inactive">✗ Pasif</span>'}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editPersonnel(${i})">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deletePersonnel(${i})">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function openPersonnelModal(index = -1) {
+    document.getElementById('personnelEditIndex').value = index;
+
+    if (index >= 0) {
+        const p = APP_DATA.personnel[index];
+        document.getElementById('personnelModalTitle').textContent = 'Personel Düzenle';
+        document.getElementById('personnelBitrixId').value = p.bitrixId || '';
+        document.getElementById('personnelName').value = p.name || '';
+        document.getElementById('personnelQuota').value = p.quota || 100;
+        document.getElementById('personnelActive').value = p.active !== false ? 'true' : 'false';
+    } else {
+        document.getElementById('personnelModalTitle').textContent = 'Personel Ekle';
+        document.getElementById('personnelBitrixId').value = '';
+        document.getElementById('personnelName').value = '';
+        document.getElementById('personnelQuota').value = 100;
+        document.getElementById('personnelActive').value = 'true';
+    }
+
+    document.getElementById('personnelModal').classList.add('active');
+}
+
+function closePersonnelModal() {
+    document.getElementById('personnelModal').classList.remove('active');
+}
+
+function savePersonnel() {
+    const index = parseInt(document.getElementById('personnelEditIndex').value);
+    const person = {
+        bitrixId: parseInt(document.getElementById('personnelBitrixId').value),
+        name: document.getElementById('personnelName').value.trim(),
+        quota: parseInt(document.getElementById('personnelQuota').value) || 100,
+        active: document.getElementById('personnelActive').value === 'true',
+        currentNew: 0
+    };
+
+    if (!person.bitrixId) { alert('Bitrix ID gerekli'); return; }
+    if (!person.name) { alert('Ad Soyad gerekli'); return; }
+
+    if (index >= 0) {
+        person.currentNew = APP_DATA.personnel[index].currentNew || 0;
+        APP_DATA.personnel[index] = person;
+    } else {
+        // Check duplicate
+        if (APP_DATA.personnel.some(p => p.bitrixId === person.bitrixId)) {
+            alert('Bu Bitrix ID zaten kayıtlı'); return;
+        }
+        APP_DATA.personnel.push(person);
+    }
+
+    B24.saveAppData();
+    renderPersonnel();
+    closePersonnelModal();
+}
+
+function editPersonnel(index) { openPersonnelModal(index); }
+
+function deletePersonnel(index) {
+    if (!confirm(`"${APP_DATA.personnel[index].name}" personelini silmek istediğinize emin misiniz?`)) return;
+    APP_DATA.personnel.splice(index, 1);
+    B24.saveAppData();
+    renderPersonnel();
+}
+
+async function syncPersonnel() {
+    if (!B24.ready) {
+        alert('Demo modda senkronizasyon yapılamaz. Bitrix24 içinden açın.');
+        return;
+    }
+
+    try {
+        const result = await B24.call('user.get', { filter: { ACTIVE: true }, start: 0 });
+        const users = result.data();
+        let added = 0;
+
+        users.forEach(u => {
+            const exists = APP_DATA.personnel.some(p => p.bitrixId === u.ID);
+            if (!exists) {
+                APP_DATA.personnel.push({
+                    bitrixId: parseInt(u.ID),
+                    name: `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim(),
+                    quota: 100,
+                    active: true,
+                    currentNew: 0
+                });
+                added++;
+            }
+        });
+
+        await B24.saveAppData();
+        renderPersonnel();
+        alert(`Senkronizasyon tamamlandı. ${added} yeni personel eklendi.`);
+    } catch(err) {
+        alert('Senkronizasyon hatası: ' + err);
+    }
+}
+
+// ============================================================
+// DISTRIBUTION ENGINE
+// ============================================================
+function addLog(message, type = '') {
+    const log = document.getElementById('progressLog');
+    const time = new Date().toLocaleTimeString('tr-TR');
+    log.innerHTML += `<div class="log-line ${type}">[${time}] ${message}</div>`;
+    log.scrollTop = log.scrollHeight;
+}
+
+function updateProgress(percent, detail) {
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressPercent').textContent = percent + '%';
+    document.getElementById('progressDetail').textContent = detail;
+}
+
+async function startDistribution() {
+    if (isDistributing) return;
+    if (APP_DATA.rules.length === 0) { alert('Önce en az bir kural tanımlayın.'); return; }
+    if (APP_DATA.personnel.length === 0) { alert('Önce personel ekleyin.'); return; }
+
+    const isDryRun = document.getElementById('dryRunCheck').checked;
+    isDistributing = true;
+    shouldStop = false;
+
+    document.getElementById('startDistBtn').disabled = true;
+    document.getElementById('progressContainer').classList.add('active');
+    document.getElementById('progressLog').innerHTML = '';
+    document.getElementById('progressTitle').textContent = isDryRun ? '🧪 Dry Run Dağıtım' : '⚡ Canlı Dağıtım';
+
+    const startTime = Date.now();
+    let totalDistributed = 0;
+    let totalErrors = 0;
+    let totalUnmatched = 0;
+    const details = {};
+
+    try {
+        // Step 1: Get current NEW lead counts for each personnel
+        addLog('Personel mevcut lead sayıları sorgulanıyor...', 'info');
+        updateProgress(5, 'Personel durumları kontrol ediliyor...');
+
+        const activePersonnel = APP_DATA.personnel.filter(p => p.active !== false);
+
+        for (let i = 0; i < activePersonnel.length; i++) {
+            if (shouldStop) break;
+            try {
+                const result = await B24.call('crm.lead.list', {
+                    filter: { ASSIGNED_BY_ID: activePersonnel[i].bitrixId, STATUS_ID: 'NEW' },
+                    select: ['ID'],
+                    start: -1  // just get total
+                });
+                const count = result.total ? result.total() : 0;
+                // Update in main data
+                const mainIdx = APP_DATA.personnel.findIndex(p => p.bitrixId === activePersonnel[i].bitrixId);
+                if (mainIdx >= 0) APP_DATA.personnel[mainIdx].currentNew = count;
+                activePersonnel[i].currentNew = count;
+                addLog(`${activePersonnel[i].name}: ${count} NEW lead, ihtiyaç: ${Math.max(0, (activePersonnel[i].quota || 100) - count)}`);
+            } catch(err) {
+                addLog(`${activePersonnel[i].name} sorgulanamadı: ${err}`, 'error');
+            }
+            updateProgress(5 + Math.round((i / activePersonnel.length) * 15), 'Personel durumları...');
+        }
+
+        if (shouldStop) { addLog('Dağıtım durduruldu.', 'error'); finishDistribution(startTime, totalDistributed, totalErrors, totalUnmatched, isDryRun, details); return; }
+
+        // Step 2: Fetch pool leads
+        addLog('Havuzdaki leadler çekiliyor...', 'info');
+        updateProgress(25, 'Havuz leadleri çekiliyor...');
+
+        let allLeads = [];
+        let start = 0;
+        const maxLeads = 10000;
+
+        while (allLeads.length < maxLeads) {
+            if (shouldStop) break;
+            try {
+                const result = await B24.call('crm.lead.list', {
+                    filter: { ASSIGNED_BY_ID: APP_DATA.settings.poolUserId, STATUS_ID: 'NEW' },
+                    select: ['ID', 'PHONE', 'UF_CRM_LANGUAGE', 'UF_CRM_COUNTRY', 'UTM_SOURCE', 'UTM_CAMPAIGN', 'SOURCE_ID', 'DATE_CREATE'],
+                    order: { ID: 'ASC' },
+                    start: start
+                });
+
+                const data = result.data ? result.data() : [];
+                if (!data || data.length === 0) break;
+                allLeads = allLeads.concat(data);
+                addLog(`${allLeads.length} lead çekildi...`);
+
+                if (result.more && result.more()) {
+                    start = result.next ? result.next() : start + 50;
+                } else {
+                    break;
+                }
+            } catch(err) {
+                addLog(`Lead çekme hatası: ${err}`, 'error');
+                break;
+            }
+            updateProgress(25 + Math.round((allLeads.length / maxLeads) * 20), `${allLeads.length} lead çekildi...`);
+        }
+
+        document.getElementById('statPoolLeads').textContent = allLeads.length;
+
+        if (allLeads.length === 0) {
+            addLog('Havuzda dağıtılacak lead bulunamadı.', 'error');
+            finishDistribution(startTime, 0, 0, 0, isDryRun, details);
+            return;
+        }
+
+        addLog(`Toplam ${allLeads.length} lead havuzdan çekildi.`, 'success');
+
+        if (shouldStop) { addLog('Dağıtım durduruldu.', 'error'); finishDistribution(startTime, totalDistributed, totalErrors, totalUnmatched, isDryRun, details); return; }
+
+        // Step 3: Sort rules by specificity (more conditions = higher priority)
+        const activeRules = APP_DATA.rules.filter(r => r.active !== false);
+        activeRules.sort((a, b) => getSpecificity(b) - getSpecificity(a));
+
+        addLog(`${activeRules.length} aktif kural yüklendi (spesifikten genele sıralı).`, 'info');
+        updateProgress(50, 'Kurallar eşleştiriliyor...');
+
+        // Step 4: Build personnel need map
+        const personnelNeeds = {};
+        activePersonnel.forEach(p => {
+            const quota = p.quota || 100;
+            const need = Math.max(0, quota - (p.currentNew || 0));
+            personnelNeeds[p.bitrixId] = {
+                ...p,
+                need: need,
+                assigned: 0
+            };
+        });
+
+        // Step 5: Match leads to rules and assign
+        const assignments = []; // {leadId, personnelId, ruleName}
+
+        // Round-robin index per rule
+        const ruleRobinIndex = {};
+
+        for (let i = 0; i < allLeads.length; i++) {
+            if (shouldStop) break;
+
+            const lead = allLeads[i];
+            const phone = extractPhone(lead);
+            const language = lead.UF_CRM_LANGUAGE || '';
+            const service = lead.UF_CRM_COUNTRY || ''; // Servis alanı - bunu Bitrix24 field mapping'e göre ayarlayacağız
+
+            let matched = false;
+
+            for (const rule of activeRules) {
+                if (matchRule(rule, lead, phone, language)) {
+                    // Get personnel list for this rule
+                    const rulePersonnel = getRulePersonnel(rule, activePersonnel);
+                    const eligiblePersonnel = rulePersonnel.filter(p => {
+                        const pn = personnelNeeds[p.bitrixId];
+                        return pn && pn.need > pn.assigned;
+                    });
+
+                    if (eligiblePersonnel.length === 0) continue; // Bu kuralın personellerinin hepsi dolu
+
+                    // Round-robin: en çok ihtiyacı olan önce
+                    eligiblePersonnel.sort((a, b) => {
+                        const needA = personnelNeeds[a.bitrixId].need - personnelNeeds[a.bitrixId].assigned;
+                        const needB = personnelNeeds[b.bitrixId].need - personnelNeeds[b.bitrixId].assigned;
+                        return needB - needA;
+                    });
+
+                    // Initialize round-robin index
+                    const ruleKey = rule.name;
+                    if (!(ruleKey in ruleRobinIndex)) ruleRobinIndex[ruleKey] = 0;
+
+                    const idx = ruleRobinIndex[ruleKey] % eligiblePersonnel.length;
+                    const assignee = eligiblePersonnel[idx];
+                    ruleRobinIndex[ruleKey]++;
+
+                    assignments.push({
+                        leadId: lead.ID,
+                        personnelId: assignee.bitrixId,
+                        personnelName: assignee.name,
+                        ruleName: rule.name
+                    });
+
+                    personnelNeeds[assignee.bitrixId].assigned++;
+                    totalDistributed++;
+                    matched = true;
+
+                    if (!details[rule.name]) details[rule.name] = {};
+                    if (!details[rule.name][assignee.name]) details[rule.name][assignee.name] = 0;
+                    details[rule.name][assignee.name]++;
+
+                    break; // İlk eşleşen kural kazanır
+                }
+            }
+
+            if (!matched) totalUnmatched++;
+
+            if (i % 100 === 0) {
+                updateProgress(50 + Math.round((i / allLeads.length) * 30), `${i}/${allLeads.length} lead işlendi...`);
+            }
+        }
+
+        addLog(`Eşleştirme tamamlandı: ${totalDistributed} atanacak, ${totalUnmatched} eşleşmeyen.`, 'success');
+
+        if (shouldStop) { addLog('Dağıtım durduruldu.', 'error'); finishDistribution(startTime, totalDistributed, totalErrors, totalUnmatched, isDryRun, details); return; }
+
+        // Step 6: Execute assignments via batch API
+        if (!isDryRun && assignments.length > 0) {
+            addLog('Bitrix24 güncellemeleri başlatılıyor...', 'info');
+            updateProgress(80, 'Leadler atanıyor...');
+
+            const batchSize = 50;
+            for (let batch = 0; batch < assignments.length; batch += batchSize) {
+                if (shouldStop) break;
+
+                const chunk = assignments.slice(batch, batch + batchSize);
+                const commands = {};
+
+                chunk.forEach((a, idx) => {
+                    commands[`lead_${idx}`] = `crm.lead.update?ID=${a.leadId}&fields[ASSIGNED_BY_ID]=${a.personnelId}`;
+                });
+
+                try {
+                    await B24.callBatch(commands);
+                    addLog(`Batch ${Math.floor(batch/batchSize) + 1}: ${chunk.length} lead atandı.`);
+                } catch(err) {
+                    addLog(`Batch hatası: ${err}`, 'error');
+                    totalErrors += chunk.length;
+                }
+
+                updateProgress(80 + Math.round(((batch + batchSize) / assignments.length) * 18), `${Math.min(batch + batchSize, assignments.length)}/${assignments.length} lead atandı...`);
+
+                // Throttle: 500ms between batches
+                await new Promise(r => setTimeout(r, 500));
+            }
+        } else if (isDryRun) {
+            addLog('🧪 Dry Run modu: Gerçek atama yapılmadı.', 'info');
+
+            // Show what would happen
+            Object.keys(details).forEach(ruleName => {
+                const ruleDetail = details[ruleName];
+                Object.keys(ruleDetail).forEach(personName => {
+                    addLog(`  ${ruleName} → ${personName}: ${ruleDetail[personName]} lead`, 'info');
+                });
+            });
+        }
+
+        addLog('✅ Dağıtım tamamlandı!', 'success');
+        updateProgress(100, 'Tamamlandı');
+
+    } catch(err) {
+        addLog(`Kritik hata: ${err}`, 'error');
+    }
+
+    finishDistribution(startTime, totalDistributed, totalErrors, totalUnmatched, isDryRun, details);
+}
+
+function finishDistribution(startTime, distributed, errors, unmatched, isDryRun, details) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    isDistributing = false;
+    document.getElementById('startDistBtn').disabled = false;
+
+    // Update stats
+    document.getElementById('statLastDate').textContent = new Date().toLocaleString('tr-TR');
+    document.getElementById('statLastDistributed').textContent = distributed;
+    document.getElementById('statLastDuration').textContent = duration + 's';
+    document.getElementById('statLastErrors').textContent = errors;
+
+    // Save log
+    APP_DATA.logs.unshift({
+        date: new Date().toISOString(),
+        mode: isDryRun ? 'Dry Run' : 'Canlı',
+        totalLeads: distributed + unmatched,
+        distributed: distributed,
+        unmatched: unmatched,
+        errors: errors,
+        duration: duration + 's',
+        details: details
+    });
+
+    // Keep max 50 logs
+    if (APP_DATA.logs.length > 50) APP_DATA.logs = APP_DATA.logs.slice(0, 50);
+
+    B24.saveAppData();
+    renderPersonnel();
+    renderLogs();
+    updateBadges();
+}
+
+function stopDistribution() {
+    shouldStop = true;
+    addLog('Durdurma isteği gönderildi...', 'error');
+}
+
+// ============================================================
+// RULE MATCHING ENGINE
+// ============================================================
+function extractPhone(lead) {
+    // Bitrix24'te telefon PHONE field'ında array olarak gelir
+    if (lead.PHONE && Array.isArray(lead.PHONE) && lead.PHONE.length > 0) {
+        return lead.PHONE[0].VALUE || '';
+    }
+    // Veya düz string olarak
+    if (typeof lead.PHONE === 'string') return lead.PHONE;
+    return '';
+}
+
+function matchRule(rule, lead, phone, language) {
+    let conditions = 0;
+    let matches = 0;
+
+    // Language check
+    if (rule.language) {
+        conditions++;
+        const langs = rule.language.split(',').map(l => l.trim().toLowerCase());
+        if (langs.includes(language.toLowerCase())) matches++;
+    }
+
+    // Phone prefix check
+    if (rule.phonePrefix) {
+        conditions++;
+        const prefixes = rule.phonePrefix.split(',').map(p => p.trim());
+        if (prefixes.some(prefix => phone.startsWith(prefix))) matches++;
+    }
+
+    // Service check
+    if (rule.service) {
+        conditions++;
+        const services = rule.service.split(',').map(s => s.trim().toLowerCase());
+        // Bu alanı Bitrix24 field mapping'e göre ayarlayacağız
+        const leadService = (lead.UF_CRM_SERVICE || lead.SOURCE_ID || '').toLowerCase();
+        if (services.some(s => leadService.includes(s))) matches++;
+    }
+
+    // Eğer hiç koşul yoksa DEFAULT kural (her şeyle eşleşir)
+    if (conditions === 0) return true;
+
+    // Tüm koşullar eşleşmeli (AND mantığı)
+    return matches === conditions;
+}
+
+function getRulePersonnel(rule, allActivePersonnel) {
+    if (rule.personnel === 'ALL') return allActivePersonnel;
+
+    const ids = rule.personnel.split(',').map(id => parseInt(id.trim()));
+    return allActivePersonnel.filter(p => ids.includes(p.bitrixId));
+}
+
+// ============================================================
+// LOGS
+// ============================================================
+function renderLogs() {
+    const tbody = document.getElementById('logsTableBody');
+    const empty = document.getElementById('logsEmpty');
+    const container = document.getElementById('logsTableContainer');
+    document.getElementById('logsBadge').textContent = APP_DATA.logs.length;
+
+    if (APP_DATA.logs.length === 0) {
+        container.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    container.style.display = 'block';
+    empty.style.display = 'none';
+
+    tbody.innerHTML = APP_DATA.logs.map((log, i) => {
+        const date = new Date(log.date).toLocaleString('tr-TR');
+        const modeTag = log.mode === 'Dry Run' ? '<span class="tag tag-yellow">Dry Run</span>' : '<span class="tag tag-green">Canlı</span>';
+        return `<tr>
+            <td style="font-size:12px;">${date}</td>
+            <td>${modeTag}</td>
+            <td>${log.totalLeads || 0}</td>
+            <td><strong style="color:var(--success)">${log.distributed}</strong></td>
+            <td>${log.unmatched || 0}</td>
+            <td>${log.errors > 0 ? `<span style="color:var(--danger)">${log.errors}</span>` : '0'}</td>
+            <td>${log.duration}</td>
+            <td><button class="btn btn-sm" onclick="showLogDetail(${i})">📋</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function showLogDetail(index) {
+    const log = APP_DATA.logs[index];
+    let html = `<div style="margin-bottom:16px;">
+        <p><strong>Tarih:</strong> ${new Date(log.date).toLocaleString('tr-TR')}</p>
+        <p><strong>Mod:</strong> ${log.mode}</p>
+        <p><strong>Toplam:</strong> ${log.distributed} dağıtılan, ${log.unmatched || 0} eşleşmeyen, ${log.errors} hata</p>
+        <p><strong>Süre:</strong> ${log.duration}</p>
+    </div>`;
+
+    if (log.details && Object.keys(log.details).length > 0) {
+        html += '<h4 style="margin-bottom:8px;">Kural Bazlı Dağılım</h4>';
+        html += '<div class="table-container"><table><thead><tr><th>Kural</th><th>Personel</th><th>Lead</th></tr></thead><tbody>';
+        Object.keys(log.details).forEach(ruleName => {
+            Object.keys(log.details[ruleName]).forEach(personName => {
+                html += `<tr><td>${ruleName}</td><td>${personName}</td><td><strong>${log.details[ruleName][personName]}</strong></td></tr>`;
+            });
+        });
+        html += '</tbody></table></div>';
+    }
+
+    document.getElementById('logDetailContent').innerHTML = html;
+    document.getElementById('logDetailModal').classList.add('active');
+}
+
+function closeLogDetailModal() {
+    document.getElementById('logDetailModal').classList.remove('active');
+}
+
+function clearLogs() {
+    if (!confirm('Tüm logları silmek istediğinize emin misiniz?')) return;
+    APP_DATA.logs = [];
+    B24.saveAppData();
+    renderLogs();
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function updateBadges() {
+    document.getElementById('rulesBadge').textContent = APP_DATA.rules.length;
+    document.getElementById('personnelBadge').textContent = APP_DATA.personnel.length;
+    document.getElementById('logsBadge').textContent = APP_DATA.logs.length;
+    document.getElementById('statActiveRules').textContent = APP_DATA.rules.filter(r => r.active !== false).length;
+    document.getElementById('statActivePersonnel').textContent = APP_DATA.personnel.filter(p => p.active !== false).length;
+
+    const totalNeed = APP_DATA.personnel
+        .filter(p => p.active !== false)
+        .reduce((sum, p) => sum + Math.max(0, (p.quota || 100) - (p.currentNew || 0)), 0);
+    document.getElementById('statTotalNeed').textContent = totalNeed;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+    await B24.init();
+    await B24.loadAppData();
+    renderRules();
+    renderPersonnel();
+    renderLogs();
+    updateBadges();
+}
+
+init();
+</script>
+</body>
+</html>
