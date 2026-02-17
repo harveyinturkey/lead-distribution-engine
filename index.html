@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://api.bitrix24.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.bitrix24.com https://*.bitrix24.tr; img-src 'self' data:; frame-ancestors https://*.bitrix24.com https://*.bitrix24.tr;">
     <title>Lead Distribution Engine</title>
     <script src="https://api.bitrix24.com/api/v1/"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2191,7 +2192,7 @@ const B24 = {
     async restFetchLeads(filter, select, order, onBatch, onError) {
         let lastId = null;
         let fetched = 0;
-        const THROTTLE = 400;
+        const THROTTLE = 100;
 
         while (true) {
             try {
@@ -2259,7 +2260,7 @@ const B24 = {
     // Kural ve personel verilerini kaydet — parçalı (B24 boyut limiti aşımını önler)
     async saveAppData() {
         const dataStr = JSON.stringify(APP_DATA);
-        console.log('saveAppData: toplam boyut =', dataStr.length, 'karakter, personel:', APP_DATA.personnel.length, 'kural:', APP_DATA.rules.length);
+        console.log('saveAppData: boyut=', dataStr.length);
 
         // 1) localStorage — her zaman, güvenilir, boyut limiti yüksek (~5MB)
         localStorage.setItem('lead_engine_data', dataStr);
@@ -2292,7 +2293,7 @@ const B24 = {
                 BX24.appOption.set('engine_logs', logsStr);
                 // Eski tek-key formatını temizle
                 BX24.appOption.set('engine_data', '');
-                console.log('saveAppData: B24 parçalı kayıt OK — personel:', pChunks.length, 'parça, rules:', rulesStr.length, 'chr');
+                console.log('saveAppData: B24 OK');
             } catch(e) {
                 console.error('saveAppData B24 hatası:', e);
             }
@@ -2308,7 +2309,7 @@ const B24 = {
             const local = localStorage.getItem('lead_engine_data');
             if (local) {
                 localData = JSON.parse(local);
-                console.log('localStorage veri:', localData.personnel?.length, 'personel,', localData.rules?.length, 'kural');
+                console.log('localStorage: veri yüklendi');
             }
         } catch(e) { console.error('localStorage parse hatası:', e); }
 
@@ -2347,7 +2348,7 @@ const B24 = {
                         settings: settingsStr ? JSON.parse(settingsStr) : APP_DATA.settings,
                         logs: logsStr ? JSON.parse(logsStr) : []
                     };
-                    console.log('B24 parçalı veri:', b24Data.personnel.length, 'personel,', b24Data.rules.length, 'kural');
+                    console.log('B24: veri yüklendi');
                 } else {
                     // Eski tek-key format dene (geriye uyumluluk)
                     const oldValue = BX24.appOption.get('engine_data');
@@ -2510,9 +2511,10 @@ function renderLanguagePicker(selectedValues) {
 
     container.innerHTML = entries.map(([id, label]) => {
         const isChecked = selected.includes(label);
+        const safeLabel = escapeHtml(label);
         return `<label class="picker-item${isChecked ? ' checked' : ''}">
-            <input type="checkbox" name="ruleLanguage" value="${label}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)">
-            ${label}
+            <input type="checkbox" name="ruleLanguage" value="${safeLabel}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)">
+            ${safeLabel}
         </label>`;
     }).join('');
 }
@@ -2529,9 +2531,10 @@ function renderServicePicker(selectedValues) {
 
     container.innerHTML = entries.map(([id, label]) => {
         const isChecked = selected.includes(label);
+        const safeLabel = escapeHtml(label);
         return `<label class="picker-item${isChecked ? ' checked' : ''}">
-            <input type="checkbox" name="ruleService" value="${label}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)">
-            ${label}
+            <input type="checkbox" name="ruleService" value="${safeLabel}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)">
+            ${safeLabel}
         </label>`;
     }).join('');
 }
@@ -2642,7 +2645,7 @@ function renderPersonnelPicker(selectedIds) {
         return;
     }
 
-    console.log('renderPersonnelPicker:', { selectedIds, personnelCount: personnel.length, selectionSize: _personnelSelection.size });
+    console.log('renderPersonnelPicker: loaded');
     _renderPersonnelPickerFromState();
 }
 
@@ -2694,7 +2697,7 @@ function openRuleModal(index = -1) {
 
     if (index >= 0) {
         const rule = APP_DATA.rules[index];
-        console.log('openRuleModal — kural verisi:', JSON.stringify(rule));
+        console.log('openRuleModal: edit mode');
         document.getElementById('ruleModalTitle').textContent = 'Kural Düzenle';
         document.getElementById('ruleName').value = rule.name || '';
         document.getElementById('ruleQuota').value = rule.quota || 200;
@@ -2754,7 +2757,7 @@ function saveRule() {
         active: document.getElementById('ruleActive').value === 'true'
     };
 
-    console.log('saveRule:', { personnelValue, selectionSet: Array.from(_personnelSelection), allMode: _personnelAllMode });
+    console.log('saveRule: saved');
 
     if (!rule.name) { alert('Kural adı gerekli'); return; }
     if (!rule.personnel) { alert('En az bir personel seçin\n\nDebug: checkbox toplam=' +
@@ -2824,8 +2827,26 @@ function importRules(event) {
         try {
             const imported = JSON.parse(e.target.result);
             if (!Array.isArray(imported)) { alert('Geçersiz dosya formatı'); return; }
-            if (confirm(`${imported.length} kural içe aktarılacak. Mevcut kurallar korunacak. Devam?`)) {
-                APP_DATA.rules = [...APP_DATA.rules, ...imported];
+            // Kural şeması doğrulama
+            const validKeys = ['name','language','service','phonePrefix','personnel','active','priority'];
+            const sanitized = imported.filter(rule => {
+                if (typeof rule !== 'object' || rule === null || Array.isArray(rule)) return false;
+                // __proto__ ve constructor pollution engelle
+                if ('__proto__' in rule || 'constructor' in rule || 'prototype' in rule) return false;
+                // Sadece bilinen anahtarları tut
+                Object.keys(rule).forEach(k => { if (!validKeys.includes(k)) delete rule[k]; });
+                // String alanları sanitize et
+                ['name','language','service','phonePrefix','personnel'].forEach(k => {
+                    if (rule[k] !== undefined) rule[k] = String(rule[k]).substring(0, 500);
+                });
+                return typeof rule.name === 'string' && rule.name.length > 0;
+            });
+            if (sanitized.length === 0) { alert('Geçerli kural bulunamadı'); return; }
+            if (sanitized.length < imported.length) {
+                alert(`${imported.length} kuraldan ${imported.length - sanitized.length} tanesi geçersiz olduğu için atlandı.`);
+            }
+            if (confirm(`${sanitized.length} kural içe aktarılacak. Mevcut kurallar korunacak. Devam?`)) {
+                APP_DATA.rules = [...APP_DATA.rules, ...sanitized];
                 B24.saveAppData();
                 renderRules();
             }
@@ -3063,7 +3084,9 @@ async function syncPersonnel() {
 function addLog(message, type = '') {
     const log = document.getElementById('progressLog');
     const time = new Date().toLocaleTimeString('tr-TR');
-    log.innerHTML += `<div class="log-line ${type}">[${time}] ${message}</div>`;
+    const safeType = escapeHtml(type);
+    const safeMsg = escapeHtml(message);
+    log.innerHTML += `<div class="log-line ${safeType}">[${time}] ${safeMsg}</div>`;
     log.scrollTop = log.scrollHeight;
 }
 
@@ -3264,20 +3287,20 @@ function _renderDiagResults(found, prefix, scanned) {
     const country = getCountryByPrefix(prefix);
     const countryLabel = country ? country.flag + ' ' + country.name : prefix;
 
-    let html = `<div style="margin-bottom:8px;font-weight:600;color:var(--text-primary);">${countryLabel}: ${found.length} lead bulundu (${scanned} tarandı)</div>`;
+    let html = `<div style="margin-bottom:8px;font-weight:600;color:var(--text-primary);">${escapeHtml(countryLabel)}: ${found.length} lead bulundu (${scanned} tarandı)</div>`;
 
     // Dil dağılımı
     html += '<div style="margin-bottom:10px;">';
     html += '<span style="color:var(--text-faint);">Dil dağılımı:</span> ';
     html += Object.entries(langBreakdown).sort((a,b) => b[1]-a[1]).map(([lang, count]) =>
-        `<span style="background:var(--accent-soft);color:var(--accent-text);padding:2px 8px;border-radius:4px;margin:2px;">${lang}: ${count}</span>`
+        `<span style="background:var(--accent-soft);color:var(--accent-text);padding:2px 8px;border-radius:4px;margin:2px;">${escapeHtml(lang)}: ${count}</span>`
     ).join(' ');
     html += '</div>';
 
     // İlk 15 lead detay
     html += '<table style="width:100%;font-size:11px;"><tr style="color:var(--text-faint);"><td>Lead ID</td><td>Telefon</td><td>Dil</td><td>Dil ID</td><td>Servis</td><td>Tarih</td></tr>';
     found.slice(0, 15).forEach(f => {
-        html += `<tr><td>${f.id}</td><td>${f.phone}</td><td><strong>${f.lang}</strong></td><td>${f.langId}</td><td>${f.svc}</td><td>${f.date?.substring(0, 10) || ''}</td></tr>`;
+        html += `<tr><td>${escapeHtml(String(f.id))}</td><td>${escapeHtml(f.phone)}</td><td><strong>${escapeHtml(f.lang)}</strong></td><td>${escapeHtml(String(f.langId))}</td><td>${escapeHtml(f.svc)}</td><td>${escapeHtml(f.date?.substring(0, 10) || '')}</td></tr>`;
     });
     html += '</table>';
     if (found.length > 15) {
@@ -3331,6 +3354,8 @@ async function startDistribution(singleRuleIndex) {
     document.getElementById('startDistBtn').disabled = true;
     document.getElementById('progressContainer').classList.add('active');
     document.getElementById('progressLog').innerHTML = '';
+    _phoneCache.clear(); // Phone cache temizle
+    _enrichDebugDone = false;
     if (typeof BX24 !== 'undefined' && BX24.fitWindow) BX24.fitWindow();
     const singleRuleName = isSingleRule ? APP_DATA.rules[singleRuleIndex].name : '';
     document.getElementById('progressTitle').textContent = isDryRun
@@ -3367,27 +3392,52 @@ async function startDistribution(singleRuleIndex) {
 
         addLog('Kullanılan lead aşaması: ' + LEAD_STATUS_FILTER, 'info');
 
-        for (let i = 0; i < ruleActivePersonnel.length; i++) {
-            if (shouldStop) break;
-            const person = ruleActivePersonnel[i];
-            try {
-                const result = await B24.call('crm.lead.list', {
-                    filter: { ASSIGNED_BY_ID: person.bitrixId, STATUS_ID: LEAD_STATUS_FILTER },
-                    select: ['ID'],
-                    start: 0
+        // Personel lead sayılarını BATCH ile sorgula (tek API çağrısı)
+        try {
+            const countQueries = ruleActivePersonnel.map(p => ({
+                method: 'crm.lead.list',
+                params: { filter: { ASSIGNED_BY_ID: p.bitrixId, STATUS_ID: LEAD_STATUS_FILTER }, select: ['ID'], start: 0 }
+            }));
+            const BATCH_SZ = 50;
+            for (let bi = 0; bi < countQueries.length; bi += BATCH_SZ) {
+                if (shouldStop) break;
+                const chunk = countQueries.slice(bi, bi + BATCH_SZ);
+                const batchResult = await B24.restBatch(chunk);
+                const bRes = batchResult.result || batchResult;
+                const resTotal = bRes.result_total || {};
+                const resData = bRes.result || {};
+                chunk.forEach((q, idx) => {
+                    const person = ruleActivePersonnel[bi + idx];
+                    const key = `q${idx}`;
+                    let count = resTotal[key];
+                    if (count === undefined || count === null) {
+                        const d = resData[key];
+                        count = Array.isArray(d) ? d.length : 0;
+                    }
+                    const mainIdx = APP_DATA.personnel.findIndex(p => p.bitrixId === person.bitrixId);
+                    if (mainIdx >= 0) APP_DATA.personnel[mainIdx].currentNew = count;
+                    person.currentNew = count;
+                    const need = Math.max(0, (person.quota || 200) - count);
+                    addLog(person.name + ' (ID:' + person.bitrixId + '): ' + count + ' NEW, kota: ' + (person.quota || 200) + ', ihtiyaç: ' + need);
                 });
-                const count = result.total ? result.total() : (result.data ? result.data().length : 0);
-                console.log('Personel lead sayısı:', person.name, 'bitrixId:', person.bitrixId, 'NEW count:', count);
-                // Update in main data
-                const mainIdx = APP_DATA.personnel.findIndex(p => p.bitrixId === person.bitrixId);
-                if (mainIdx >= 0) APP_DATA.personnel[mainIdx].currentNew = count;
-                person.currentNew = count;
-                const need = Math.max(0, (person.quota || 200) - count);
-                addLog(person.name + ' (ID:' + person.bitrixId + '): ' + count + ' NEW lead, kota: ' + (person.quota || 200) + ', ihtiyaç: ' + need);
-            } catch(err) {
-                addLog(person.name + ' sorgulanamadı: ' + err, 'error');
+                updateProgress(5 + Math.round(((bi + chunk.length) / countQueries.length) * 15), 'Personel durumları...');
             }
-            updateProgress(5 + Math.round((i / ruleActivePersonnel.length) * 15), 'Personel durumları...');
+        } catch(err) {
+            addLog('Personel batch sorgusu hatası: ' + err.message + ' — tek tek deneniyor...', 'error');
+            for (let i = 0; i < ruleActivePersonnel.length; i++) {
+                if (shouldStop) break;
+                const person = ruleActivePersonnel[i];
+                try {
+                    const result = await B24.call('crm.lead.list', {
+                        filter: { ASSIGNED_BY_ID: person.bitrixId, STATUS_ID: LEAD_STATUS_FILTER },
+                        select: ['ID'], start: 0
+                    });
+                    const count = result.total ? result.total() : 0;
+                    const mainIdx = APP_DATA.personnel.findIndex(p => p.bitrixId === person.bitrixId);
+                    if (mainIdx >= 0) APP_DATA.personnel[mainIdx].currentNew = count;
+                    person.currentNew = count;
+                } catch(e) { addLog(person.name + ' sorgulanamadı: ' + e, 'error'); }
+            }
         }
 
         if (shouldStop) { addLog('Dağıtım durduruldu.', 'error'); finishDistribution(startTime, totalDistributed, totalErrors, totalUnmatched, isDryRun, details); return; }
@@ -3646,11 +3696,9 @@ async function startDistribution(singleRuleIndex) {
             addLog(`"${rule.name}": ${ruleMatched} lead ${fetchSec}s ✓`, 'success');
             updateProgress(25 + Math.round((totalDistributed / Math.max(totalNeedAll, 1)) * 55), `${totalDistributed}/${totalNeedAll} atandı`);
 
-            // Kurallar arası bekleme — rate limit'e takılmamak için (start=-1 ile kısaltıldı)
+            // Kurallar arası kısa bekleme
             if (ruleIdx < activeRules.length - 1 && ruleFetched > 0) {
-                const waitSec = Math.max(5, Math.min(30, Math.ceil(ruleFetched / 100)));
-                addLog(`  ⏳ Sonraki kural için ${waitSec}s bekleniyor (rate limit koruması)...`, 'info');
-                await new Promise(r => setTimeout(r, waitSec * 1000));
+                await new Promise(r => setTimeout(r, 500));
             }
         }
 
@@ -3668,7 +3716,7 @@ async function startDistribution(singleRuleIndex) {
 
         // Step 7: Execute assignments via REST batch API (25 güncelleme = 1 API çağrısı)
         if (!isDryRun && assignments.length > 0) {
-            const BATCH_SIZE = 25;
+            const BATCH_SIZE = 50;
             const totalBatches = Math.ceil(assignments.length / BATCH_SIZE);
             addLog(`Bitrix24 güncellemeleri başlatılıyor (${assignments.length} lead, ${totalBatches} batch × ${BATCH_SIZE})...`, 'info');
             updateProgress(80, 'Leadler atanıyor...');
@@ -3753,9 +3801,9 @@ async function startDistribution(singleRuleIndex) {
                 }
                 updateProgress(80 + Math.round((processed / assignments.length) * 18), `${processed}/${assignments.length} lead atandı...`);
 
-                // Rate limit koruması (25'lik batch için 1s bekleme)
+                // Rate limit koruması
                 if (i + BATCH_SIZE < assignments.length) {
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise(r => setTimeout(r, 400));
                 }
             }
 
@@ -3812,7 +3860,7 @@ async function startDistribution(singleRuleIndex) {
                         }
                     }
 
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise(r => setTimeout(r, 400));
                 }
 
                 addLog(`Retry tur ${retryRound} sonucu: ${assignedCount} başarılı, ${retryQueue.length} kalan`, 'info');
@@ -3902,11 +3950,27 @@ function extractPhone(lead) {
 
 // crm.lead.list multi-field (PHONE) döndürmeyebilir — batch crm.lead.get ile çek
 let _enrichDebugDone = false;
+const _phoneCache = new Map(); // Global phone cache: leadId → phone string
+
 async function enrichLeadsWithPhone(leads) {
     if (!B24.ready || leads.length === 0) return;
+
+    // Cache'den zaten bilinen lead'leri ayır
+    const needsEnrich = [];
+    for (const lead of leads) {
+        if (_phoneCache.has(String(lead.ID))) {
+            const cached = _phoneCache.get(String(lead.ID));
+            lead._phone = cached;
+            if (!lead.PHONE && cached) lead.PHONE = [{ VALUE: cached }];
+        } else {
+            needsEnrich.push(lead);
+        }
+    }
+    if (needsEnrich.length === 0) return;
+
     const BATCH = 50;
-    for (let i = 0; i < leads.length; i += BATCH) {
-        const chunk = leads.slice(i, i + BATCH);
+    for (let i = 0; i < needsEnrich.length; i += BATCH) {
+        const chunk = needsEnrich.slice(i, i + BATCH);
         const commands = chunk.map(lead => ({
             method: 'crm.lead.get',
             params: { ID: lead.ID }
@@ -3915,7 +3979,6 @@ async function enrichLeadsWithPhone(leads) {
             const result = await B24.restBatch(commands);
             const batchResult = result.result?.result || {};
 
-            // İlk batch: ham veriyi debug logla
             if (!_enrichDebugDone) {
                 _enrichDebugDone = true;
                 const firstKey = Object.keys(batchResult)[0];
@@ -3923,43 +3986,32 @@ async function enrichLeadsWithPhone(leads) {
                 if (firstLead) {
                     const phoneField = firstLead.PHONE;
                     const keys = Object.keys(firstLead).filter(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('tel'));
-                    console.log('enrichLeadsWithPhone DEBUG — ilk lead:', JSON.stringify(firstLead).substring(0, 500));
-                    console.log('enrichLeadsWithPhone DEBUG — phone keys:', keys, 'PHONE value:', JSON.stringify(phoneField));
-                    const logEl = document.getElementById('progressLog');
-                    if (logEl) {
-                        const t = new Date().toLocaleTimeString('tr-TR');
-                        logEl.innerHTML += `<div class="log-line info">[${t}]   DEBUG crm.lead.get → PHONE=${JSON.stringify(phoneField)?.substring(0, 120)}, phone-keys=[${keys.join(',')}]</div>`;
-                        logEl.scrollTop = logEl.scrollHeight;
-                    }
+                    addLog('  DEBUG enrich → PHONE=' + JSON.stringify(phoneField)?.substring(0, 120), 'info');
                 }
             }
 
-            let enriched = 0;
             Object.keys(batchResult).forEach(key => {
                 const idx = parseInt(key.replace('q', ''));
                 const leadData = batchResult[key];
                 if (leadData && chunk[idx]) {
                     const phone = leadData.PHONE;
+                    let phoneStr = '';
                     if (phone && Array.isArray(phone) && phone.length > 0) {
                         chunk[idx].PHONE = phone;
-                        chunk[idx]._phone = phone[0].VALUE || '';
-                        enriched++;
+                        phoneStr = phone[0].VALUE || '';
+                        chunk[idx]._phone = phoneStr;
                     } else if (typeof phone === 'string' && phone.length > 0) {
-                        chunk[idx]._phone = phone;
-                        enriched++;
+                        phoneStr = phone;
+                        chunk[idx]._phone = phoneStr;
                     }
+                    _phoneCache.set(String(chunk[idx].ID), phoneStr);
                 }
             });
         } catch (err) {
-            console.warn('enrichLeadsWithPhone batch hatası:', err);
-            const logEl = document.getElementById('progressLog');
-            if (logEl) {
-                const t = new Date().toLocaleTimeString('tr-TR');
-                logEl.innerHTML += `<div class="log-line error">[${t}]   enrichPhone hatası: ${err.message}</div>`;
-            }
+            addLog('  enrichPhone hatası: ' + err.message, 'error');
         }
-        if (i + BATCH < leads.length) {
-            await new Promise(r => setTimeout(r, 500));
+        if (i + BATCH < needsEnrich.length) {
+            await new Promise(r => setTimeout(r, 100));
         }
     }
 }
@@ -4040,10 +4092,10 @@ function renderLogs() {
 function showLogDetail(index) {
     const log = APP_DATA.logs[index];
     let html = `<div style="margin-bottom:16px;">
-        <p><strong>Tarih:</strong> ${new Date(log.date).toLocaleString('tr-TR')}</p>
-        <p><strong>Mod:</strong> ${log.mode}</p>
+        <p><strong>Tarih:</strong> ${escapeHtml(new Date(log.date).toLocaleString('tr-TR'))}</p>
+        <p><strong>Mod:</strong> ${escapeHtml(log.mode)}</p>
         <p><strong>Toplam:</strong> ${log.distributed} dağıtılan, ${log.unmatched || 0} eşleşmeyen, ${log.errors} hata</p>
-        <p><strong>Süre:</strong> ${log.duration}</p>
+        <p><strong>Süre:</strong> ${escapeHtml(log.duration)}</p>
     </div>`;
 
     if (log.details && Object.keys(log.details).length > 0) {
@@ -4051,7 +4103,7 @@ function showLogDetail(index) {
         html += '<div class="table-wrap"><table><thead><tr><th>Kural</th><th>Personel</th><th>Lead</th></tr></thead><tbody>';
         Object.keys(log.details).forEach(ruleName => {
             Object.keys(log.details[ruleName]).forEach(personName => {
-                html += `<tr><td>${ruleName}</td><td>${personName}</td><td><strong>${log.details[ruleName][personName]}</strong></td></tr>`;
+                html += `<tr><td>${escapeHtml(ruleName)}</td><td>${escapeHtml(personName)}</td><td><strong>${log.details[ruleName][personName]}</strong></td></tr>`;
             });
         });
         html += '</tbody></table></div>';
@@ -4143,7 +4195,7 @@ async function loadPoolStats() {
     }
 }
 
-// Personel lead sayılarını Bitrix24'ten çek
+// Personel lead sayılarını Bitrix24'ten çek (BATCH optimized)
 async function loadPersonnelCounts() {
     if (!B24.ready) return;
     const personnel = APP_DATA.personnel || [];
@@ -4151,22 +4203,34 @@ async function loadPersonnelCounts() {
 
     debugLog('Personel lead sayıları sorgulanıyor...');
     let updated = 0;
-    for (const person of personnel) {
-        try {
-            const result = await Promise.race([
-                B24.call('crm.lead.list', {
-                    filter: { ASSIGNED_BY_ID: person.bitrixId, STATUS_ID: LEAD_STATUS_FILTER },
-                    select: ['ID'],
-                    start: -1
-                }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+    const BATCH_SZ = 50;
+    try {
+        for (let bi = 0; bi < personnel.length; bi += BATCH_SZ) {
+            const chunk = personnel.slice(bi, bi + BATCH_SZ);
+            const commands = chunk.map(p => ({
+                method: 'crm.lead.list',
+                params: { filter: { ASSIGNED_BY_ID: p.bitrixId, STATUS_ID: LEAD_STATUS_FILTER }, select: ['ID'], start: 0 }
+            }));
+            const batchResult = await Promise.race([
+                B24.restBatch(commands),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
             ]);
-            const count = result.total ? result.total() : 0;
-            person.currentNew = count;
-            updated++;
-        } catch(err) {
-            console.warn('Personel sayısı alınamadı:', person.name, err);
+            const bRes = batchResult.result || batchResult;
+            const resTotal = bRes.result_total || {};
+            const resData = bRes.result || {};
+            chunk.forEach((person, idx) => {
+                const key = `q${idx}`;
+                let count = resTotal[key];
+                if (count === undefined || count === null) {
+                    const d = resData[key];
+                    count = Array.isArray(d) ? d.length : 0;
+                }
+                person.currentNew = count;
+                updated++;
+            });
         }
+    } catch(err) {
+        console.warn('Batch personel sayısı hatası, fallback:', err);
     }
     debugLog(updated + '/' + personnel.length + ' personel lead sayısı güncellendi');
     await B24.saveAppData();
@@ -4302,7 +4366,7 @@ async function loadLeadPivot() {
             const commands = chunk.map(q => ({ method: q.method, params: q.params }));
 
             const batchResult = await B24.restBatch(commands);
-            console.log('Pivot batch response (ilk chunk debug):', i === 0 ? JSON.stringify(batchResult).substring(0, 500) : 'skip');
+            // pivot batch processed
 
             const batchRes = batchResult.result || batchResult;
             const resultData = batchRes.result || {};
@@ -4499,7 +4563,7 @@ function enumToLabel(enumType, id) {
 // DEBUG — sayfada görünür durum bilgisi
 // ============================================================
 function debugLog(msg, isError) {
-    console.log('[DEBUG]', msg);
+    // debug status update
     const el = document.getElementById('connectionStatus');
     if (el) el.textContent = msg;
     if (isError) {
